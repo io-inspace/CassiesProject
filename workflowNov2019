@@ -1,0 +1,701 @@
+---
+title: "Effect of nematodes on M. lupulina growing with native and nonnative old field species"
+output: html_notebook
+---
+
+# Background/Metadata
+
+History: All data is inherited from COF's rotation experiment with SK and CWW, Sp and Summer 2019(?).
+
+Design: All individuals were potted with a conspecific (Mono), and a subset of those were also potted with M. lupulina (Mixed). Potted pairs were either inoculated with Melodigyne (N+), or remained uninoculated as a control (N-). Rhizobia inoculation was assumed to be ambient. Pots were randomly assigned to 10 blocks, but such that N+ and N- were grouped together to prevent accidental inoculation of control pots.
+
+  Native Species: 
+  
+            Legumes:
+            
+                  *Partridge Pea (Chaemecrista fasciculata)*
+                  Showy Tick Trefoil (Desmodium canadense)
+                  
+            Grasses:
+            
+                  *Bottlebrush (Elymus hystrix)*
+                  Big Bluestem (Andropogon gerardii)
+                  
+            Asters:
+            
+                  *Black-eyed susan (Rudbeckia hirta)*
+                  Goldenrod (Solidago rugosa)
+                  
+  Non-native Species: 
+  
+            Legumes:
+            
+                  *Black Medic (Medicago lupulina)*
+                  *White Clover (Trifolium repens)*
+                  
+            Grasses:
+            
+                  *Smooth Brome (Bromus inermis)*
+                  Tall Fescue (Festuca arundinacae)
+                  
+            Asters:
+            
+                  *Common Chicory (Cichorium intybus)*
+                  Oxeye Daisy (Chrysanthemum leucantheumum)
+                  
+(* indicates subset of species grown with Medicago lupulina.)
+
+# Data collection 
+  Working Location: SJC's hard drive "Cassie_root_counts.csv"
+  
+  Backup Location: SJC's google drive "Cassie_root_counts_inprogress.csv"
+  
+  shoot biomass (dried)
+  
+    Goal: all individuals
+    Notes: missing pot 176 and individual 228B = 717/720 individuals
+    Progress: DONE
+  
+  nodule and gall counts
+  
+    Goal: 5 pots/species/partner/inoculation = 130 pots, 260 individuals
+    Notes: all that's left to do are non-legumes from N- pots
+    Progress: nearly done
+    
+  root biomass (dried)
+    
+    Goal: all individuals
+    Notes: 
+    Progress: in progress
+
+  
+# Analysis 
+
+History: SJC commenced analysis Aug. 2019.
+
+Goals: rough draft by mid-November
+
+## Summary Questions and Results: 
+
+  Question 1: Was nematode inoculation successful? 
+  
+    Yes.
+  
+  Question 2: Among inoculated species growing in monoculture, what factors best predicted nematode susceptibility (presence and number of galls)? 
+  
+    Nonnative legumes with more nodules had more galls.
+    
+  Question 2.1: Among susceptible individuals (individuals with galls and more of them), was there a fitness cost to increased susceptibility (was growth hindered by nematode infection compared to individuals from the N- treatment?)
+  
+    No, tolerant individuals did not have different shoot biomass from N- individuals.
+    
+  Question 2.2: Among unsusceptible (presumably resistant) individuals, was there a fitness cost to resistance (were resistant individuals less fit than individuals from the N- treatment?)
+  
+    No, resistant individuals growing with other resistant individual in N+ pots did not have different biomass from individuals growing in N- pots. Resistant individuals in N+ pots growing with a non-resistant indivdual had GREATER shoot biomass than N- individuals. This indicates that there is no detectable cost to resistance, and that the greater shoot biomass comes from the boost resistant individuals get when growing with a non-resistant individual (still in monoculture). These conclusions are only valid if this is a nonconstituitive defense (i.e. induced). IOW, if defenses are built in, we wouldn't expect differences between N-and N+ pots (resistant plants would always be investing in that constitutive defense).
+    
+  Question 2.3: To be thorough, does MeLu specifically tolerate infection?
+    
+    Yes, half of the individuals are tolerant and half are resistant. Shoot biomass between uninfected and infected plants were not significantly different.
+  
+### 2. what factors best predict nematode susceptibility in inoculated         pots?
+  Some Hypotheses: species, pot partner (self or M. lupulina), status        (native or nonnative), family (legume, grass, or aster), or the number of   nodules (among legumes, after controlling for biomass) are all factors     that could affect susceptibility.
+
+  Status: 
+    *enemy release: either non-natives avoid infection, or get infected but     withstand infection*
+      *Question 2.1: are infected non-natives as equally productive as            non-natives in N- pots?* Yes, and after controlling for Block and          Species, no more so than their uninfected counterparts.
+       *Question 2.12: do non-natives have more nodules?* NO, status              doesn't predict nodulation among legumes.
+       *does more nodulation lead to higher biomass?* YES, and status              doesn't matter.
+    alternative: non-natives can't avoid infection and do not withstand        infection
+     
+  Pot partner:
+    self-limitation: individuals grown with M. lupulina will have fewer        galls than individuals grown with a conspecific
+    alternatiev: individuals grown with M. lupulina will have more galls       than individuals grown with a conspecific
+      *Question 2.2: do Medicago grown with grasses have more or fewer           galls than Medicago grown with other Asters? with other legumes?*
+    
+  Family: 
+    *grass effect: grasses are resistant*
+    rhizobia defense: legumes will have fewer galls when they have more        nodules
+      - patch occupancy, increased nutrients to allocate to defense, etc.
+    alternative: legumes will have more galls when they have more nodules
+      - signalling, dispersal, cost of mutualism, etc.
+      
+  Species:
+    species effect: species identity determines susceptibility
+    alternative: species identity does not matter.
+    
+### 2.2. what factors best predict nodule formation among legumes?
+  - need to collect more data on nodule presence on N- legumes.
+
+
+# Libraries, data, & root directory
+```{r Libraries}
+library(lme4)
+library(MuMIn)
+library(glmmTMB)
+```
+
+```{r Call data and get into a working dataframe.}
+
+setwd("~/Documents/Fall2019/Projects/CassiesData")
+roots<-read.csv('Cassie_root_counts_inprogress.csv',sep=',',header = TRUE)
+spssubset = 1
+
+#add a mono v mixed column
+ftray<-function(x) if(x == 'Mono1' | x == 'Mono2'){x = 'Mono'}else{x='Mix'}
+roots$monoculture<-sapply(roots$Tray,ftray)
+
+#add an invasive status column
+fstatus<-function(x) if(x == 'TrRe'| x == 'MeLu' | x == 'BrIn' | x == 'CiIn' | x == 'FeAr' | x == 'ChLe'){x = 'nonnative'}else{x = 'native'}
+roots$status<-sapply(roots$Species,fstatus)
+
+#add in root mass data
+rootmass<-read.csv('Cassie Root Mass Data.csv',header=TRUE,sep=',')
+colnames(rootmass)<-c('Plant.ID','rootmass')
+
+thing<-merge(roots,rootmass,by='Plant.ID',all.x=TRUE)
+roots<-thing[order(thing$Pot.ID),]
+
+roots$Block<-as.factor(roots$Block)
+roots$N..N.<-as.factor(roots$N..N.)
+roots$N..N.<-as.factor(roots$N..N.)
+roots$Species<-as.factor(roots$Species)
+roots$Family<-as.factor(roots$Family)
+roots$status<-as.factor(roots$status)
+roots$monoculture<-as.factor(roots$monoculture)
+
+#look at 6 species only?
+if(spssubset==1){
+  roots<-roots[roots$Species=='BrIn' | roots$Species=='ChFa' | roots$Species=='CiIn' |  roots$Species=='ElHy' | roots$Species=='RuHi' | roots$Species=='MeLu' | roots$Species=='TrRe',]
+}
+
+roots_DONE<-roots[!is.na(roots$X..nodules) & !is.na(roots$X..galls),]
+
+
+roots<-roots[-(dim(roots)[1]),]
+roots_DONE<-roots_DONE[-(dim(roots_DONE)[1]),] #removing mislabeled data point
+roots_DONE<-droplevels(roots_DONE) #freaking levels.
+roots<-droplevels(roots) #freaking levels.
+
+
+```
+
+##Question 1: was nematode inoculation successful? Yes.
+
+```{r Question 1: was nematode inoculation successful?}
+
+#convert counts to presence-absence data:
+roots_DONE$nz <- as.numeric(roots_DONE$X..galls>0)
+
+table(roots_DONE$nz,roots_DONE$N..N.)
+
+#allstructure<-glmer(nz~N..N.+(1|Block)+(1|Species)+(1|Block/Tray),data=roots_DONE,family=binomial,control=glmerControl(optCtrl=list(maxfun=1e6)))
+Q1<-glmer(nz~N..N.+(1|Block)+(1|Species),data=roots_DONE,family=binomial,control=glmerControl(optCtrl=list(maxfun=1e6)))
+
+Anova(Q1,type=3)
+
+```
+###Summary:
+
+  Inoculation success was modeled as a binomial distribution (presence or absence of galls) using glmer to control for species, block, and monoculture. We found a significant effect of inoculation. 
+  
+  However, there were also many pots inoculated with nematodes that did not develop galls.
+
+## Question 2: what factors best predicted nematode susceptibility in         inoculated pots?
+
+### Note: Add rootmass when you have it
+```{r Question 2: what factors best predicted nematode susceptibility in monocultures with nematodes?}
+
+dat<-roots_DONE[roots_DONE$N..N.=='N+' & roots_DONE$monoculture=='Mono',]
+dat$nz <- as.numeric(dat$X..galls>0)
+
+#family is definitely the issue, so I'm breaking them out.
+
+#Asters
+#RuHi never had galls, CiIn had one gall on one individual
+
+#Grasses
+#none of the grasses ever had galls.
+
+#Legumes
+# m1<-glmmTMB(X..galls ~ status*scale(shoot.biomass,center=TRUE) + scale(X..nodules,center=TRUE)*scale(shoot.biomass,center=TRUE) + (1|Species) + (1|Block) + (1|Block/Tray),ziformula = ~ status*scale(shoot.biomass,center=TRUE) + scale(X..nodules,center=TRUE)*scale(shoot.biomass,center=TRUE) + (1|Species) + (1|Block) + (1|Block/Tray), data=dat[dat$Family=='Legume',],family=nbinom2, control=glmmTMBControl(optCtrl=list(iter.max=1e3,eval.max=1e3)))
+
+Q2<-glmmTMB(X..galls ~ status + scale(shoot.biomass,center=TRUE) + scale(X..nodules,center=TRUE) + (1|Species) + (1|Block) + (1|Block/Tray),ziformula = ~ ., data=dat[dat$Family=='Legume',],family=nbinom2, control=glmmTMBControl(optCtrl=list(iter.max=1e3,eval.max=1e3)))
+Anova(m2,type=3)
+
+
+```
+### Summary:
+Asters and Grasses never had galls.
+Among legumes, nonnatives with more nodules had more galls.
+
+##Get data about MeLu pot partners: 
+
+```{r MeLu pot partners}
+
+#this chunk of code will work for mixed pots:
+MeLu<-roots_DONE[roots_DONE$Species=='MeLu' & roots_DONE$monoculture=='Mix',]
+partner.status<-NULL
+partner.Family<-NULL
+partner.Species<-NULL
+partner.galls<-NULL
+partner.nods<-NULL
+partner.shootbiomass<-NULL
+partner.rootmass<-NULL
+pots<-MeLu$Pot.ID
+index=1
+for(p in pots){pairs<-roots_DONE[roots_DONE$Pot.ID==p,]
+if(dim(pairs)[1]==1){partner.status[index]<-NA
+partner.Family[index]<-NA
+partner.Species[index]<-NA
+partner.galls[index]<-NA
+partner.nods[index]<-NA
+partner.shootbiomass[index]<-NA
+partner.rootmass[index]<-NA
+index=index+1
+}else{
+partner.status[index]<-as.character(pairs[1,24])
+partner.Family[index]<-as.character(pairs[1,7])
+partner.Species[index]<-as.character(pairs[1,6])
+partner.galls[index]<-pairs[1,10]
+partner.nods[index]<-pairs[1,9]
+partner.shootbiomass[index]<-pairs[1,14]
+partner.rootmass[index]<-pairs[1,25]
+index=index+1
+}
+}
+MeLu$partner.status<-as.factor(partner.status)
+MeLu$partner.Family<-as.factor(partner.Family)
+MeLu$partner.Species<-as.factor(partner.Species)
+MeLu$partner.galls<-partner.galls
+MeLu$partner.nods<-partner.nods
+MeLu$partner.shootbiomass<-partner.shootbiomass
+MeLu$partner.rootmass<-partner.rootmass
+MeLu$shoot.biomass[MeLu$shoot.biomass==0]<-.001
+MeLu$partner.shootbiomass[MeLu$partner.shootbiomass==0]<-.001
+MeLu$partner.rootmass[MeLu$partner.rootmass==0]<-.001
+
+MeLuMONO<-roots_DONE[roots_DONE$Species=='MeLu' & roots_DONE$monoculture=='Mono',]
+partnerA.status<-NULL
+partnerA.Family<-NULL
+partnerA.Species<-NULL
+partnerA.galls<-NULL
+partnerA.nods<-NULL
+partnerA.shootbiomass<-NULL
+partnerA.rootmass<-NULL
+partnerB.status<-NULL
+partnerB.Family<-NULL
+partnerB.Species<-NULL
+partnerB.galls<-NULL
+partnerB.nods<-NULL
+partnerB.shootbiomass<-NULL
+partnerB.rootmass<-NULL
+
+pots<-unique(MeLuMONO$Pot.ID)
+index=1
+for(p in pots){pairs<-roots_DONE[roots_DONE$Pot.ID==p,]
+if(dim(pairs)[1]==1){partner.status[index]<-NA
+partner.Family[index]<-NA
+partner.Species[index]<-NA
+partner.galls[index]<-NA
+partner.nods[index]<-NA
+partner.shootbiomass[index]<-NA
+partner.rootmass[index]<-NA
+index=index+1
+}else{
+partnerA.status[index]<-as.character(pairs[1,24])
+partnerA.Family[index]<-as.character(pairs[1,7])
+partnerA.Species[index]<-as.character(pairs[1,6])
+partnerA.galls[index]<-pairs[1,10]
+partnerA.nods[index]<-pairs[1,9]
+partnerA.shootbiomass[index]<-pairs[1,14]
+partnerA.rootmass[index]<-pairs[1,25]
+
+partnerB.status[index]<-as.character(pairs[2,24])
+partnerB.Family[index]<-as.character(pairs[2,7])
+partnerB.Species[index]<-as.character(pairs[2,6])
+partnerB.galls[index]<-pairs[2,10]
+partnerB.nods[index]<-pairs[2,9]
+partnerB.shootbiomass[index]<-pairs[2,14]
+partnerB.rootmass[index]<-pairs[2,25]
+index=index+1
+}
+}
+
+MeLuMONO$partner.status<-rep('nonnative',28)
+MeLuMONO$partner.Family<-rep('Legume',28)
+MeLuMONO$partner.Species<-rep('MeLu',28)
+partner.galls<-list()
+partner.nods<-list()
+partner.shootbiomass<-list()
+partner.rootmass<-list()
+for(v in 1:28){
+  if(!is.na(partnerA.shootbiomass[v])){
+    partner.galls[[v]]<-c(partnerB.galls[v],partnerA.galls[v])
+    partner.nods[[v]]<-c(partnerB.nods[v],partnerA.nods[v])
+    partner.shootbiomass[[v]]<-c(partnerB.shootbiomass[v],partnerA.shootbiomass[v])
+    partner.rootmass[[v]]<-c(partnerB.rootmass[v],partnerA.rootmass[v])
+    }else{
+    partner.galls[[v]]<-NA
+    partner.nods[[v]]<-NA
+    partner.shootbiomass[[v]]<-NA
+    partner.rootmass[[v]]<-NA}
+}
+MeLuMONO$partner.galls<-unlist(partner.galls)[1:28]
+MeLuMONO$partner.nods<-unlist(partner.nods)[1:28]
+MeLuMONO$partner.shootbiomass<-unlist(partner.shootbiomass)[1:28]
+MeLuMONO$partner.rootmass<-unlist(partner.rootmass)[1:28]
+
+MeLuMONO$shoot.biomass[MeLuMONO$shoot.biomass==0]<-.001
+MeLuMONO$partner.shootbiomass[MeLuMONO$partner.shootbiomass==0]<-.001
+MeLuMONO$partner.rootmass[MeLuMONO$partner.rootmass==0]<-.001
+
+MeLuDAT<-rbind(MeLu,MeLuMONO)
+
+```
+
+##Measure competition when MeLu is the focal species: 
+
+```{r competitive effects on MeLu}
+
+RII<- function(Bw,B0,print=TRUE){
+  intensity<- (Bw-B0)/(Bw+B0)
+  output<-intensity
+  return(output)
+}
+
+#roots<-read.csv('Cassie_root_counts_inprogress.csv',sep=',',header = TRUE)
+#ftray<-function(x) if(x == 'Mono1' | x == 'Mono2'){x = 'Mono'}else{x='Mix'}
+#roots$monoculture<-sapply(roots$Tray,ftray)
+
+rootsAGDONE<-droplevels(roots[!is.na(roots$shoot.biomass),])
+
+species<-c('BrIn','ChFa','CiIn','ElHy','RuHi','TrRe')
+iterations<-1
+
+treatment<-'N-'
+
+pottracker_noN<-matrix(data=NA,ncol=length(species),nrow=10,byrow=TRUE)
+RIIbyblockandsp_noNINDA<-matrix(data=NA,ncol=length(species),nrow=10,byrow=TRUE)
+RIIbyblockandsp_noNINDB<-matrix(data=NA,ncol=length(species),nrow=10,byrow=TRUE)
+infotoaverageINDA<-list()
+infotoaverageINDB<-list()
+for(r in 1:iterations){
+for(b in 1:10){
+for(sp in 1:length(species)){
+choice<-rootsAGDONE[rootsAGDONE$Species=='MeLu' & rootsAGDONE$Block==b &  
+                  rootsAGDONE$monoculture=='Mono' &  
+                  rootsAGDONE$N..N.==treatment ,14]
+v1<-choice[1]
+v2<-choice[2]
+
+pots<-unique(rootsAGDONE[rootsAGDONE$Species==species[sp] & rootsAGDONE$Block==b & rootsAGDONE$monoculture=='Mix' & rootsAGDONE$N..N.==treatment,2])
+
+
+if(length(pots)==0){
+  pottracker_noN[b,sp]<-NA
+  v3[i]<-NA}else{
+pottracker_noN[b,sp]<-pots
+v3<-NULL
+for(i in 1:length(pots)){
+  #fate<-runif(1)
+  v3[i]<-rootsAGDONE[rootsAGDONE$Species=='MeLu' & rootsAGDONE$Block==b & rootsAGDONE$monoculture=='Mix' & rootsAGDONE$N..N.==treatment & rootsAGDONE$Pot.ID==pots[i],14]
+  #if(length(choice)>1){
+  #if(fate<.5){
+#v2[i]<-choice[1]}else{v2[i]<-choice[2]}
+ # }else{v2[i]<-choice}
+
+}
+}
+#for(i in 1:length(pots)){
+#v2[i]<-mean(rootsAGDONE[rootsAGDONE$Species==species[sp] &  
+#                   rootsAGDONE$monoculture=='Mono' & 
+#                   rootsAGDONE$N..N.==treatment&
+#                   rootsAGDONE$Pot.ID==pots[i],14])
+#}
+#output<-PSF_MC96_combo(v1,v2)
+if(length(v3)!=0){
+value1<-RII(v3,v1)
+value2<-RII(v3,v2)}else{
+value1<-NA
+value2<-NA}
+RIIbyblockandsp_noNINDA[b,sp]<-value1
+RIIbyblockandsp_noNINDB[b,sp]<-value2
+}}
+  infotoaverageINDA[[r]]<-RIIbyblockandsp_noNINDA
+  infotoaverageINDB[[r]]<-RIIbyblockandsp_noNINDB
+}
+#RII_noN<-Reduce('+',infotoaverage)/iterations
+RII_noNA<-RIIbyblockandsp_noNINDA
+RII_noNB<-RIIbyblockandsp_noNINDB
+
+
+treatment<-'N+'
+
+
+pottracker_N<-matrix(data=NA,ncol=length(species),nrow=10,byrow=TRUE)
+RIIbyblockandsp_NINDA<-matrix(data=NA,ncol=length(species),nrow=10,byrow=TRUE)
+RIIbyblockandsp_NINDB<-matrix(data=NA,ncol=length(species),nrow=10,byrow=TRUE)
+infotoaverageINDA<-list()
+infotoaverageINDB<-list()
+for(r in 1:iterations){
+for(b in 1:10){
+for(sp in 1:length(species)){
+choice<-rootsAGDONE[rootsAGDONE$Species=='MeLu' & rootsAGDONE$Block==b &  
+                  rootsAGDONE$monoculture=='Mono' &  
+                  rootsAGDONE$N..N.==treatment ,14]
+v1<-choice[1]
+v2<-choice[2]
+
+pots<-unique(rootsAGDONE[rootsAGDONE$Species==species[sp] & rootsAGDONE$Block==b & rootsAGDONE$monoculture=='Mix' & rootsAGDONE$N..N.==treatment,2])
+pottracker_N[b,sp]<-pots
+
+if(length(pots)==0){v3[i]<-NA}else{
+v3<-NULL
+for(i in 1:length(pots)){
+  #fate<-runif(1)
+  v3[i]<-rootsAGDONE[rootsAGDONE$Species=='MeLu' & rootsAGDONE$Block==b & rootsAGDONE$monoculture=='Mix' & rootsAGDONE$N..N.==treatment & rootsAGDONE$Pot.ID==pots[i],14]
+  if(length(v3)==0){v3[i]<-NA}
+  #if(length(choice)>1){
+  #if(fate<.5){
+#v2[i]<-choice[1]}else{v2[i]<-choice[2]}
+ # }else{v2[i]<-choice}
+
+}
+}
+#for(i in 1:length(pots)){
+#v2[i]<-mean(rootsAGDONE[rootsAGDONE$Species==species[sp] &  
+#                   rootsAGDONE$monoculture=='Mono' & 
+#                   rootsAGDONE$N..N.==treatment&
+#                   rootsAGDONE$Pot.ID==pots[i],14])
+#}
+#output<-PSF_MC96_combo(v1,v2)
+value1<-RII(v3,v1)
+value2<-RII(v3,v2)
+RIIbyblockandsp_NINDA[b,sp]<-value1
+RIIbyblockandsp_NINDB[b,sp]<-value2
+}}
+  infotoaverageINDA[[r]]<-RIIbyblockandsp_NINDA
+  infotoaverageINDB[[r]]<-RIIbyblockandsp_NINDB
+}
+#RII_noN<-Reduce('+',infotoaverage)/iterations
+RII_NA<-RIIbyblockandsp_NINDA
+RII_NB<-RIIbyblockandsp_NINDB
+
+#A WITH A
+data<-as.data.frame(rbind(RII_noNA,RII_NA))
+colnames(data)<-species
+data$N<-c(rep('N-',10),rep('N+',10))
+data$Block<-rep(as.character(c(1:10)),2)
+for(i in 1:6){
+  boxplot(data[,i]~as.factor(data[,7]),main=paste(colnames(data)[i], ', AA',sep=''),na.action=na.omit)
+  test<-t.test(x=RII_noNA[,i],y=RII_NA[,i],na.action=na.omit)
+  legend('bottomright',legend=c(test$p.value),bty='n')
+}
+
+#A WITH B
+data<-as.data.frame(rbind(RII_noNA,RII_NB))
+colnames(data)<-species
+data$N<-c(rep('N-',10),rep('N+',10))
+data$Block<-rep(as.character(c(1:10)),2)
+for(i in 1:6){
+  boxplot(data[,i]~as.factor(data[,7]),main=paste(colnames(data)[i], ', AB',sep=''),na.action=na.omit)
+  test<-t.test(x=RII_noNA[,i],y=RII_NB[,i],na.action=na.omit)
+  legend('bottomright',legend=c(test$p.value),bty='n')
+}
+#B WITH A
+data<-as.data.frame(rbind(RII_noNB,RII_NA))
+colnames(data)<-species
+data$N<-c(rep('N-',10),rep('N+',10))
+data$Block<-rep(as.character(c(1:10)),2)
+for(i in 1:6){
+  boxplot(data[,i]~as.factor(data[,7]),main=paste(colnames(data)[i], ', BA',sep=''),na.action=na.omit)
+  test<-t.test(x=RII_noNB[,i],y=RII_NA[,i],na.action=na.omit)
+  legend('bottomright',legend=c(test$p.value),bty='n')
+}
+#B WITH B
+data<-as.data.frame(rbind(RII_noNB,RII_NB))
+colnames(data)<-species
+data$N<-c(rep('N-',10),rep('N+',10))
+data$Block<-rep(as.character(c(1:10)),2)
+for(i in 1:6){
+  boxplot(data[,i]~as.factor(data[,7]),main=paste(colnames(data)[i], ', BB',sep=''),na.action=na.omit)
+  test<-t.test(x=RII_noNB[,i],y=RII_NB[,i],na.action=na.omit)
+  legend('bottomright',legend=c(test$p.value),bty='n')
+}
+
+```
+
+```{r}
+
+#RII_NA
+ind=1
+
+thing<-as.data.frame(as.vector(RII_NA))
+thing$treatment<-rep("N+",60)
+thing$individual<-rep("A",60)
+thing$partner.Species<-rep(c(species),each=10)
+thing$Block<-rep(c(1:10),6)
+thing$partner.status<-rep(c('nonnative','native','nonnative','native','native','nonnative'),each=10)
+thing$partner.Family<-rep(c('Grass','Legume','Aster','Grass','Aster','Legume'),each=10)
+thing$mixedpotID<-as.vector(pottracker_N)
+thing$monopotID<-rep(unique(rootsAGDONE[rootsAGDONE$Species=='MeLu' & rootsAGDONE$monoculture=='Mono' & rootsAGDONE$N..N.=='N+',2]),length(species))
+
+pulldat<-matrix(data=NA,ncol=8,nrow=dim(thing)[1],byrow=TRUE)
+for(g in 1:dim(thing)[1]){
+
+  pulldat[g,1]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(9)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(9)]})
+
+  pulldat[g,2]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(10)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(10)]})
+
+  pulldat[g,3]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(30)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(30)]})
+
+  pulldat[g,4]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(31)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(31)]})
+
+  pulldat[g,5]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(9)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(9)][ind]})
+
+  pulldat[g,6]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(10)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(10)][ind]})
+
+  pulldat[g,7]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(30)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(30)][ind]})
+
+  pulldat[g,8]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(31)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(31)][ind]})
+}
+
+colnames(pulldat)<-c(paste(colnames(MeLu)[9],'_mixed',sep=''),paste(colnames(MeLu)[10],'_mixed',sep=''),paste(colnames(MeLu)[30],'_mixed',sep=''),paste(colnames(MeLu)[31],'_mixed',sep=''),paste(colnames(MeLu)[9],'_mono',sep=''),paste(colnames(MeLu)[10],'_mono',sep=''),paste(colnames(MeLu)[30],'_mono',sep=''),paste(colnames(MeLu)[31],'_mono',sep=''))
+
+MeLu_compdat<-cbind(thing,pulldat)
+colnames(MeLu_compdat)<-c('RII','treatment','individual','partner.Species','Block','partner.status','partner.Family','mixedpotID','monopotID',paste(colnames(MeLu)[9],'_mixed',sep=''),paste(colnames(MeLu)[10],'_mixed',sep=''),paste(colnames(MeLu)[30],'_mixed',sep=''),paste(colnames(MeLu)[31],'_mixed',sep=''),paste(colnames(MeLu)[9],'_mono',sep=''),paste(colnames(MeLu)[10],'_mono',sep=''),paste(colnames(MeLu)[30],'_mono',sep=''),paste(colnames(MeLu)[31],'_mono',sep=''))
+
+#RII_NB
+ind=2
+
+thing<-as.data.frame(as.vector(RII_NB))
+thing$treatment<-rep("N+",60)
+thing$individual<-rep("B",60)
+thing$partner.Species<-rep(c(species),each=10)
+thing$Block<-rep(c(1:10),6)
+thing$partner.status<-rep(c('nonnative','native','nonnative','native','native','nonnative'),each=10)
+thing$partner.Family<-rep(c('Grass','Legume','Aster','Grass','Aster','Legume'),each=10)
+thing$mixedpotID<-as.vector(pottracker_N)
+thing$monopotID<-rep(unique(rootsAGDONE[rootsAGDONE$Species=='MeLu' & rootsAGDONE$monoculture=='Mono' & rootsAGDONE$N..N.=='N+',2]),length(species))
+
+pulldat<-matrix(data=NA,ncol=8,nrow=dim(thing)[1],byrow=TRUE)
+for(g in 1:dim(thing)[1]){
+
+  pulldat[g,1]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(9)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(9)]})
+
+  pulldat[g,2]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(10)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(10)]})
+
+  pulldat[g,3]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(30)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(30)]})
+
+  pulldat[g,4]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(31)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(31)]})
+
+  pulldat[g,5]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(9)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(9)][ind]})
+
+  pulldat[g,6]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(10)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(10)][ind]})
+
+  pulldat[g,7]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(30)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(30)][ind]})
+
+  pulldat[g,8]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(31)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(31)][ind]})
+}
+
+colnames(pulldat)<-c(paste(colnames(MeLu)[9],'_mixed',sep=''),paste(colnames(MeLu)[10],'_mixed',sep=''),paste(colnames(MeLu)[30],'_mixed',sep=''),paste(colnames(MeLu)[31],'_mixed',sep=''),paste(colnames(MeLu)[9],'_mono',sep=''),paste(colnames(MeLu)[10],'_mono',sep=''),paste(colnames(MeLu)[30],'_mono',sep=''),paste(colnames(MeLu)[31],'_mono',sep=''))
+
+colnames(thing)<-c('RII','treatment','individual','partner.Species','Block','partner.status','partner.Family','mixedpotID','monopotID')
+
+thing<-cbind(thing,pulldat)
+  
+MeLu_compdat<-rbind(MeLu_compdat,thing)
+
+#RII_noNA
+ind=1
+
+thing<-as.data.frame(as.vector(RII_noNA))
+thing$treatment<-rep("N-",60)
+thing$individual<-rep("A",60)
+thing$partner.Species<-rep(c(species),each=10)
+thing$Block<-rep(c(1:10),6)
+thing$partner.status<-rep(c('nonnative','native','nonnative','native','native','nonnative'),each=10)
+thing$partner.Family<-rep(c('Grass','Legume','Aster','Grass','Aster','Legume'),each=10)
+thing$mixedpotID<-as.vector(pottracker_noN)
+thing$monopotID<-rep(unique(rootsAGDONE[rootsAGDONE$Species=='MeLu' & rootsAGDONE$monoculture=='Mono' & rootsAGDONE$N..N.=='N-',2]),length(species))
+
+pulldat<-matrix(data=NA,ncol=8,nrow=dim(thing)[1],byrow=TRUE)
+for(g in 1:dim(thing)[1]){
+
+  pulldat[g,1]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(9)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(9)]})
+
+  pulldat[g,2]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(10)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(10)]})
+
+  pulldat[g,3]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(30)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(30)]})
+
+  pulldat[g,4]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(31)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(31)]})
+
+  pulldat[g,5]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(9)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(9)][ind]})
+
+  pulldat[g,6]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(10)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(10)][ind]})
+
+  pulldat[g,7]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(30)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(30)][ind]})
+
+  pulldat[g,8]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(31)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(31)][ind]})
+}
+
+colnames(pulldat)<-c(paste(colnames(MeLu)[9],'_mixed',sep=''),paste(colnames(MeLu)[10],'_mixed',sep=''),paste(colnames(MeLu)[30],'_mixed',sep=''),paste(colnames(MeLu)[31],'_mixed',sep=''),paste(colnames(MeLu)[9],'_mono',sep=''),paste(colnames(MeLu)[10],'_mono',sep=''),paste(colnames(MeLu)[30],'_mono',sep=''),paste(colnames(MeLu)[31],'_mono',sep=''))
+
+colnames(thing)<-c('RII','treatment','individual','partner.Species','Block','partner.status','partner.Family','mixedpotID','monopotID')
+
+thing<-cbind(thing,pulldat)
+  
+MeLu_compdat<-rbind(MeLu_compdat,thing)
+
+
+#RII_noNB
+ind=2
+
+thing<-as.data.frame(as.vector(RII_noNB))
+thing$treatment<-rep("N-",60)
+thing$individual<-rep("B",60)
+thing$partner.Species<-rep(c(species),each=10)
+thing$Block<-rep(c(1:10),6)
+thing$partner.status<-rep(c('nonnative','native','nonnative','native','native','nonnative'),each=10)
+thing$partner.Family<-rep(c('Grass','Legume','Aster','Grass','Aster','Legume'),each=10)
+thing$mixedpotID<-as.vector(pottracker_noN)
+thing$monopotID<-rep(unique(rootsAGDONE[rootsAGDONE$Species=='MeLu' & rootsAGDONE$monoculture=='Mono' & rootsAGDONE$N..N.=='N-',2]),length(species))
+
+pulldat<-matrix(data=NA,ncol=8,nrow=dim(thing)[1],byrow=TRUE)
+for(g in 1:dim(thing)[1]){
+
+  pulldat[g,1]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(9)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(9)]})
+
+  pulldat[g,2]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(10)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(10)]})
+
+  pulldat[g,3]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(30)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(30)]})
+
+  pulldat[g,4]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(31)])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$mixedpotID[g],c(31)]})
+
+  pulldat[g,5]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(9)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(9)][ind]})
+
+  pulldat[g,6]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(10)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(10)][ind]})
+
+  pulldat[g,7]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(30)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(30)][ind]})
+
+  pulldat[g,8]<-I(if(length(MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(31)][1])==0){NA}else{MeLuDAT[MeLuDAT$Pot.ID==thing$monopotID[g],c(31)][ind]})
+}
+
+colnames(pulldat)<-c(paste(colnames(MeLu)[9],'_mixed',sep=''),paste(colnames(MeLu)[10],'_mixed',sep=''),paste(colnames(MeLu)[30],'_mixed',sep=''),paste(colnames(MeLu)[31],'_mixed',sep=''),paste(colnames(MeLu)[9],'_mono',sep=''),paste(colnames(MeLu)[10],'_mono',sep=''),paste(colnames(MeLu)[30],'_mono',sep=''),paste(colnames(MeLu)[31],'_mono',sep=''))
+
+colnames(thing)<-c('RII','treatment','individual','partner.Species','Block','partner.status','partner.Family','mixedpotID','monopotID')
+
+thing<-cbind(thing,pulldat)
+  
+MeLu_compdat<-rbind(MeLu_compdat,thing)
+
+m1<-lmer(RII ~ treatment*partner.Family + treatment*partner.status + (1|Block) + (1|partner.Species) ,data=MeLu_compdat,REML=TRUE)
+Anova(m1,type=3)
+#right, so basically this is picking out the MeLu and TrRe effect.
+
+blah<-na.omit(MeLu_compdat)
+
+
+m2<-lmer(RII~ X..nodules_mixed + X..galls_mixed + partner.galls_mixed + partner.nods_mixed + X..nodules_mono + X..galls_mono + partner.galls_mono +  partner.nods_mono + (1|partner.Species) + (1|Block)+(1|individual),data=blah,REML=TRUE)
+
+```
